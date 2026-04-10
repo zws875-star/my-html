@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#071433" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="天气工具" />
+  <title>天气工具</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+  <style>
+    :root{
+      --bg:#06122f;
+      --card:#202945;
+      --card2:rgba(255,255,255,.08);
+      --line:rgba(255,255,255,.1);
+      --text:#f8fafc;
+      --muted:rgba(248,250,252,.72);
+      --accent:#facc15;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:linear-gradient(180deg,#031033,#071a49 55%,#0a245f);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+    body{min-height:100vh}
+    .app{max-width:780px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+    .panel{
+      background:rgba(32,41,69,.96);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:0 12px 30px rgba(0,0,0,.2);
+      margin-bottom:16px;
+    }
+    .top{display:grid;grid-template-columns:1fr 1fr auto;gap:12px}
+    input,button{
+      height:56px;border:none;border-radius:18px;font-size:20px
+    }
+    input{
+      width:100%;padding:0 16px;background:#fff;color:#111827
+    }
+    button{
+      padding:0 20px;background:var(--accent);font-weight:800;color:#111827;cursor:pointer
+    }
+    button:disabled{opacity:.7}
+    .hero{padding:10px 6px 2px}
+    .temp{font-size:84px;line-height:1;font-weight:800;margin:10px 0}
+    .desc{font-size:24px;color:#fff}
+    .sub{font-size:16px;color:var(--muted);margin-top:8px}
+    .section-title{font-size:28px;font-weight:800;margin:0 0 14px}
+    .list{display:grid;gap:12px}
+    .item{
+      background:var(--card2);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:14px 16px;
+      font-size:20px;
+      line-height:1.6;
+    }
+    .tips{
+      margin-top:10px;
+      font-size:14px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .mini{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-top:14px;
+    }
+    .mini-card{
+      background:var(--card2);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:14px;
+    }
+    .mini-k{font-size:13px;color:var(--muted)}
+    .mini-v{font-size:28px;font-weight:800;margin-top:6px}
+    .status{margin-top:12px;font-size:15px;color:var(--muted)}
+    @media (max-width:680px){
+      .top{grid-template-columns:1fr}
+      .temp{font-size:68px}
+      .desc{font-size:22px}
+      .section-title{font-size:24px}
+      .item,input,button{font-size:18px}
+      .mini{grid-template-columns:1fr 1fr 1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <div class="top">
+        <input id="city" value="安阳" placeholder="城市">
+        <input id="date" type="date">
+        <button id="searchBtn" onclick="run()">查询</button>
+      </div>
+
+      <div class="hero">
+        <div class="temp" id="temp">--°C</div>
+        <div class="desc" id="desc">等待查询</div>
+        <div class="sub" id="status">已就绪</div>
+
+        <div class="mini">
+          <div class="mini-card">
+            <div class="mini-k">最低气温</div>
+            <div class="mini-v" id="minTemp">--</div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-k">最高气温</div>
+            <div class="mini-v" id="maxTemp">--</div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-k">温差</div>
+            <div class="mini-v" id="gapTemp">--</div>
+          </div>
+        </div>
+
+        <div class="tips">iPhone 添加到主屏幕：Safari 打开后，点底部分享按钮 → 选择“添加到主屏幕”。</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">穿衣建议</div>
+      <div class="list" id="advice"></div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">出行建议</div>
+      <div class="list" id="travel"></div>
+    </div>
+  </div>
+
+<script>
+function setTomorrow(){
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  document.getElementById("date").value = `${y}-${m}-${day}`;
+}
+
+function showList(id, arr){
+  document.getElementById(id).innerHTML = arr.map(v => `<div class="item">${v}</div>`).join("");
+}
+
+function updateSummary(max, min, cityName, date){
+  const gap = max - min;
+  document.getElementById("temp").innerText = max + "°C";
+  document.getElementById("desc").innerText = `${cityName} · ${date}`;
+  document.getElementById("minTemp").innerText = min + "°";
+  document.getElementById("maxTemp").innerText = max + "°";
+  document.getElementById("gapTemp").innerText = gap + "°";
+}
+
+async function run(){
+  const city = document.getElementById("city").value.trim() || "安阳";
+  const date = document.getElementById("date").value;
+  const status = document.getElementById("status");
+  const btn = document.getElementById("searchBtn");
+
+  if(!date){
+    status.innerText = "请先选择日期";
+    return;
+  }
+
+  btn.disabled = true;
+  status.innerText = "查询中...";
+
+  try{
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh&format=json`;
+    const geoRes = await fetch(geoUrl);
+    const geo = await geoRes.json();
+    if(!geo.results || !geo.results.length) throw new Error("没找到这个城市");
+
+    const lat = geo.results[0].latitude;
+    const lon = geo.results[0].longitude;
+    const cityName = geo.results[0].name;
+
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,windspeed_10m_max&timezone=Asia/Shanghai&start_date=${date}&end_date=${date}`;
+    const weatherRes = await fetch(weatherUrl);
+    const data = await weatherRes.json();
+    if(!data.daily || !data.daily.temperature_2m_max || !data.daily.temperature_2m_max.length) throw new Error("天气数据为空");
+
+    const max = Math.round(data.daily.temperature_2m_max[0]);
+    const min = Math.round(data.daily.temperature_2m_min[0]);
+    const pop = Math.round((data.daily.precipitation_probability_max || [0])[0] || 0);
+    const wind = Math.round((data.daily.windspeed_10m_max || [0])[0] || 0);
+    const gap = max - min;
+
+    updateSummary(max, min, cityName, date);
+
+    const advice = [];
+    if(min <= 10) advice.push("早晚偏凉，建议长袖 + 薄外套。");
+    else advice.push("基础穿搭可选长袖或薄上衣。");
+    if(max >= 26) advice.push("中午偏暖，热了可以脱外套。");
+    if(gap >= 10) advice.push("昼夜温差大，分层穿搭最稳。");
+    if(pop >= 40) advice.push("降水概率偏高，建议带伞。");
+    if(wind >= 30) advice.push("风偏大，外套尽量有点防风能力。");
+    if(!advice.length) advice.push("体感整体平稳，正常穿搭即可。");
+
+    const travel = [];
+    if(pop < 40) travel.push("整体适合出行。");
+    else travel.push("出门建议备伞，注意天气变化。");
+    if(min <= 10) travel.push("早出晚归时别穿太少。");
+    if(max >= 28) travel.push("中午户外久待记得补水。");
+    if(wind >= 30) travel.push("骑车时注意风力影响。");
+    if(!travel.length) travel.push("天气整体稳定。");
+
+    showList("advice", advice);
+    showList("travel", travel);
+
+    try{
+      localStorage.setItem("weatherPwaLastState", JSON.stringify({city, date, max, min, advice, travel, cityName}));
+    }catch(_){}
+    status.innerText = "查询完成";
+  }catch(e){
+    status.innerText = e.message || "请求失败";
+    showList("advice", ["请检查城市名、日期，或稍后重试。"]);
+    showList("travel", ["当前未获取到可用天气数据。"]);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function restoreLastState(){
+  try{
+    const raw = localStorage.getItem("weatherPwaLastState");
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    if(s.city) document.getElementById("city").value = s.city;
+    if(s.date) document.getElementById("date").value = s.date;
+    if(typeof s.max === "number" && typeof s.min === "number"){
+      updateSummary(s.max, s.min, s.cityName || s.city || "安阳", s.date || "");
+    }
+    if(Array.isArray(s.advice)) showList("advice", s.advice);
+    if(Array.isArray(s.travel)) showList("travel", s.travel);
+    document.getElementById("status").innerText = "已恢复上次结果";
+  }catch(_){}
+}
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
+}
+
+setTomorrow();
+restoreLastState();
+</script>
+</body>
+</html>
